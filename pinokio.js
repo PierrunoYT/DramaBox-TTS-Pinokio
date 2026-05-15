@@ -9,6 +9,7 @@ module.exports = {
     let running = {
       install: info.running("install.js"),
       start: info.running("start.js"),
+      start_low_vram: info.running("start_low_vram.js"),
       update: info.running("update.js"),
       reset: info.running("reset.js"),
       link: info.running("link.js")
@@ -21,8 +22,9 @@ module.exports = {
         href: "install.js",
       }]
     } else if (installed) {
-      if (running.start) {
-        let local = info.local("start.js")
+      if (running.start || running.start_low_vram) {
+        let startScript = running.start_low_vram ? "start_low_vram.js" : "start.js"
+        let local = info.local(startScript)
         if (local && local.url) {
           return [{
             default: true,
@@ -32,14 +34,14 @@ module.exports = {
           }, {
             icon: 'fa-solid fa-terminal',
             text: "Terminal",
-            href: "start.js",
+            href: startScript,
           }]
         } else {
           return [{
             default: true,
             icon: 'fa-solid fa-terminal',
             text: "Terminal",
-            href: "start.js",
+            href: startScript,
           }]
         }
       } else if (running.update) {
@@ -69,6 +71,10 @@ module.exports = {
           icon: "fa-solid fa-power-off",
           text: "Start",
           href: "start.js",
+        }, {
+          icon: "fa-solid fa-gauge-low",
+          text: "<div><strong>Start Low VRAM</strong><div>For 16 GB GPUs; slower sequential generation</div></div>",
+          href: "start_low_vram.js",
         }, {
           icon: "fa-solid fa-download",
           text: "Model on HuggingFace",

@@ -10,12 +10,14 @@ A 1-click Pinokio launcher for [DramaBox](https://github.com/resemble-ai/DramaBo
 
 DramaBox is a prompt-driven text-to-speech model with voice cloning. The prompt controls speaker identity, emotion, delivery style, laughs, sighs, pauses and transitions. An optional 10-second voice reference clones the target timbre. It is an IC-LoRA fine-tune of the LTX-2.3 3.3B audio-only model.
 
-**Requirements:** ~24 GB VRAM (NVIDIA GPU), ~17 GB disk space for models.
+**Requirements:** ~24 GB VRAM (NVIDIA GPU) for the fast warm-server mode, ~17 GB disk space for models.
+
+**Low VRAM mode:** use **Start Low VRAM** on 16 GB GPUs. It runs DramaBox through the sequential CLI path so the text encoder, DiT and decoder are not kept on the GPU at the same time. This lowers peak VRAM pressure, but each generation is slower than the normal 24 GB mode.
 
 ## How to Use
 
 1. Click **Install** to clone the repo and install all dependencies.
-2. Click **Start** to launch the Gradio web UI.
+2. Click **Start** to launch the fast Gradio web UI, or **Start Low VRAM** for 16 GB GPUs.
 3. Click **Open Web UI** to open DramaBox in your browser.
 
 ### Prompt Writing Guide
