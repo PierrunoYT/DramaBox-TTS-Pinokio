@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 from mmgp import offload, profile_type
 
@@ -66,9 +67,6 @@ def _patch_hf_downloads_for_windows():
 _patch_hf_downloads_for_windows()
 
 
-_original_load_all = inference_server.TTSServer._load_all
-
-
 def _profile_from_env():
     profiles = {
         "1": profile_type.HighRAM_HighVRAM,
@@ -99,14 +97,94 @@ def _profile_from_env():
 
 
 def _load_all_with_mmgp(self):
-    _original_load_all(self)
-    pipe = {
-        "text_encoder": self._prompt_encoder,
-        "audio_conditioner": self._audio_conditioner,
-        "transformer": self._velocity_model,
-        "vae": self._audio_decoder,
-    }
+    """Launcher-side low-VRAM loader.
+
+    The upstream warm loader builds the DiT directly on CUDA, then MMGP offloads
+    it after the peak has already happened. Keep the app checkout untouched, but
+    load the DiT on CPU here so MMGP owns the first GPU transfer.
+    """
+    t0_total = time.time()
+
+    t0 = time.time()
+    self._prompt_encoder = inference_server.PromptEncoder(
+        checkpoint_path=self.full_checkpoint,
+        gemma_root=self.gemma_root,
+        dtype=self.dtype,
+        device=self.device,
+        warm=True,
+        use_bnb_4bit=self.bnb_4bit,
+        audio_only=True,
+    )
+    inference_server.logging.info(f"  PromptEncoder (warm): {time.time()-t0:.1f}s")
+
+    t0 = time.time()
+    self._audio_conditioner = inference_server.AudioConditioner(
+        checkpoint_path=self.full_checkpoint,
+        dtype=self.dtype,
+        device=self.device,
+        warm=True,
+    )
+    inference_server.logging.info(f"  AudioConditioner (warm): {time.time()-t0:.1f}s")
+
+    t0 = time.time()
+    class AudioOnlyConfigurator(inference_server.ModelConfigurator[inference_server.LTXModel]):
+        @classmethod
+        def from_config(cls, cfg):
+            t = cfg.get("transformer", {})
+            cp = None
+            if not t.get("caption_proj_before_connector", False):
+                with torch.device("meta"):
+                    cp = inference_server.create_caption_projection(t, audio=True)
+            return inference_server.LTXModel(
+                model_type=inference_server.LTXModelType.AudioOnly,
+                audio_num_attention_heads=t.get("audio_num_attention_heads", 32),
+                audio_attention_head_dim=t.get("audio_attention_head_dim", 64),
+                audio_in_channels=t.get("audio_in_channels", 128),
+                audio_out_channels=t.get("audio_out_channels", 128),
+                num_layers=t.get("num_layers", 48),
+                audio_cross_attention_dim=t.get("audio_cross_attention_dim", 2048),
+                norm_eps=t.get("norm_eps", 1e-6),
+                attention_type=inference_server.AttentionFunction(t.get("attention_type", "default")),
+                positional_embedding_theta=10000.0,
+                audio_positional_embedding_max_pos=[20.0],
+                timestep_scale_multiplier=t.get("timestep_scale_multiplier", 1000),
+                use_middle_indices_grid=t.get("use_middle_indices_grid", True),
+                rope_type=inference_server.LTXRopeType(t.get("rope_type", "interleaved")),
+                double_precision_rope=t.get("frequencies_precision", False) == "float64",
+                apply_gated_attention=t.get("apply_gated_attention", False),
+                audio_caption_projection=cp,
+                cross_attention_adaln=t.get("cross_attention_adaln", False),
+            )
+
+    audio_sd_ops = inference_server.SDOps("AO").with_matching(
+        prefix="model.diffusion_model."
+    ).with_replacement("model.diffusion_model.", "")
+    builder = inference_server.Builder(
+        model_path=self.checkpoint,
+        model_class_configurator=AudioOnlyConfigurator,
+        model_sd_ops=audio_sd_ops,
+        registry=inference_server.DummyRegistry(),
+    )
+    self._velocity_model = builder.build(device=torch.device("cpu"), dtype=self.dtype).eval()
+    n_params = sum(p.numel() for p in self._velocity_model.parameters()) / 1e9
+    model_gb = sum(p.numel() * p.element_size() for p in self._velocity_model.parameters()) / 1e9
+    inference_server.logging.info(
+        f"  Transformer: {time.time()-t0:.1f}s "
+        f"({n_params:.1f}B params, {model_gb:.1f}GB CPU, {self.dtype})"
+    )
+
+    pipe = {"transformer": self._velocity_model}
     offload.profile(pipe, _profile_from_env())
+
+    t0 = time.time()
+    self._audio_decoder = inference_server.AudioDecoder(
+        checkpoint_path=self.full_checkpoint,
+        dtype=self.dtype,
+        device=self.device,
+        warm=True,
+    )
+    inference_server.logging.info(f"  AudioDecoder (warm): {time.time()-t0:.1f}s")
+    inference_server.logging.info(f"All models loaded in {time.time()-t0_total:.1f}s - ready for requests")
 
 
 inference_server.TTSServer._load_all = _load_all_with_mmgp
