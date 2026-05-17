@@ -10,13 +10,28 @@ A 1-click Pinokio launcher for [DramaBox](https://github.com/resemble-ai/DramaBo
 
 DramaBox is a prompt-driven text-to-speech model with voice cloning. The prompt controls speaker identity, emotion, delivery style, laughs, sighs, pauses and transitions. An optional 10-second voice reference clones the target timbre. It is an IC-LoRA fine-tune of the LTX-2.3 3.3B audio-only model.
 
-**Requirements:** ~24 GB VRAM (NVIDIA GPU), ~17 GB disk space for models.
+**Requirements:** ~24 GB VRAM (NVIDIA GPU) or Apple Silicon with PyTorch MPS,
+~17 GB disk space for models.
 
 ## How to Use
 
 1. Click **Install** to clone the repo and install all dependencies.
 2. Click **Start** to launch the Gradio web UI.
 3. Click **Open Web UI** to open DramaBox in your browser.
+
+### Apple Silicon / MPS
+
+This Pinokio launcher applies a runtime compatibility patch before importing the
+upstream Gradio app:
+
+- selects `mps` automatically when CUDA is unavailable and PyTorch MPS is
+  available;
+- keeps `cuda` for NVIDIA systems and falls back to `cpu` otherwise;
+- casts vocoder inputs to the vocoder parameter dtype/device on MPS, avoiding
+  `Input type (float) and bias type (c10::BFloat16) should be the same` during
+  final decode.
+
+Set `DRAMABOX_DEVICE` (or `LTX_DEVICE`) to override auto-selection.
 
 ### Low VRAM Mode
 
@@ -45,7 +60,7 @@ A woman speaks warmly, "Hello, how are you today?" She laughs, "Hahaha, it is so
 ```python
 from src.inference_server import TTSServer
 
-server = TTSServer(device="cuda")
+server = TTSServer(device="cuda")  # Pinokio launch auto-selects mps/cuda/cpu.
 server.generate_to_file(
     prompt='A woman speaks warmly, "Hello, how are you today?"',
     output="output.wav",
