@@ -136,36 +136,110 @@ def patch_tts_server_device(inference_server: Any, torch_module: Any = None) -> 
                     requested_device,
                 )
 
-            if _device_type(torch_module, selected_device) == "mps":
+            on_mps = _device_type(torch_module, selected_device) == "mps"
+            if on_mps:
                 kwargs.setdefault("compile_model", False)
 
             super().__init__(*args, **kwargs)
+
+            if on_mps:
+                _cast_audio_stack_to_fp32(self, torch_module, inference_server.logging)
 
     inference_server.TTSServer = PinokioTTSServer
 
 
 def patch_mps_vocoder_dtype(torch_module: Any) -> None:
-    """Make the vocoder input match MPS weights instead of forcing float32."""
-    from ltx_core.model.audio_vae import vocoder as vocoder_module
+    """Force the audio decoder + vocoder to run in fp32 on MPS.
 
-    original_forward = vocoder_module.Vocoder.forward
-    if getattr(original_forward, "_pinokio_mps_dtype_patched", False):
+    Why this exists:
+      - VocoderWithBWE.forward() wraps itself in
+        ``torch.autocast(device_type=mel_spec.device.type, dtype=torch.float32)``
+        to escape bf16/fp16 underflow inside the STFT/BWE path.
+      - On MPS, ``torch.autocast`` only accepts bf16/fp16 — passing float32
+        emits ``"In MPS autocast, but the target dtype is not supported.
+        Disabling autocast"`` and the entire vocoder ends up running in bf16.
+      - bf16 ``sqrt(real**2 + imag**2)`` inside ``_STFTFn`` underflows, NaNs
+        propagate, and torchaudio saves a non-finite waveform as a silent
+        (or empty) WAV. Symptom: correct-length file, total silence,
+        "Audio buffer is not finite everywhere" warning from the Perth
+        watermark stage.
+
+    Fix: at TTSServer construction time on MPS, cast the warm AudioDecoder
+    (nn.Module) and every VocoderWithBWE sub-module to float32, and replace
+    ``VocoderWithBWE.forward`` with a version that does the dtype handling
+    explicitly instead of relying on autocast.
+    """
+    from ltx_core.model.audio_vae import vocoder as vocoder_module
+    import torch.nn.functional as F
+
+    if getattr(vocoder_module, "_pinokio_mps_fp32_patched", False):
         return
 
-    def forward_with_mps_dtype(self, x):
-        try:
-            ref = next(self.parameters())
-        except StopIteration:
-            ref = None
+    def _vocoder_with_bwe_forward_fp32(self, mel_spec):
+        """Drop-in replacement for VocoderWithBWE.forward that runs in fp32.
 
-        if ref is not None and ref.device.type == "mps" and (x.device != ref.device or x.dtype != ref.dtype):
-            x = x.to(device=ref.device, dtype=ref.dtype)
+        Mirrors upstream logic but skips the autocast context (no-op on MPS)
+        and casts inputs/outputs explicitly.
+        """
+        input_dtype = mel_spec.dtype
+        mel_spec = mel_spec.float()
 
-        return original_forward(self, x)
+        x = self.vocoder(mel_spec)
+        _, _, length_low_rate = x.shape
+        output_length = (
+            length_low_rate * self.output_sampling_rate // self.input_sampling_rate
+        )
 
-    forward_with_mps_dtype._pinokio_mps_dtype_patched = True
-    forward_with_mps_dtype._pinokio_original_forward = original_forward
-    vocoder_module.Vocoder.forward = forward_with_mps_dtype
+        remainder = length_low_rate % self.hop_length
+        if remainder != 0:
+            x = F.pad(x, (0, self.hop_length - remainder))
+
+        mel = self._compute_mel(x)
+        mel_for_bwe = mel.transpose(2, 3)
+        residual = self.bwe_generator(mel_for_bwe)
+        skip = self.resampler(x)
+
+        return torch_module.clamp(residual + skip, -1, 1)[..., :output_length].to(input_dtype)
+
+    vocoder_module._pinokio_mps_fp32_patched = True
+    vocoder_module._pinokio_vocoder_with_bwe_forward_fp32 = _vocoder_with_bwe_forward_fp32
+
+
+def _cast_audio_stack_to_fp32(server: Any, torch_module: Any, logger: Any) -> None:
+    """Cast the warm AudioDecoder + VocoderWithBWE to fp32 (MPS only)."""
+    import types
+    from ltx_core.model.audio_vae import vocoder as vocoder_module
+
+    audio_decoder = getattr(server, "_audio_decoder", None)
+    if audio_decoder is None:
+        return
+
+    warm_decoder = getattr(audio_decoder, "_warm_decoder", None)
+    warm_vocoder = getattr(audio_decoder, "_warm_vocoder", None)
+    if warm_decoder is None and warm_vocoder is None:
+        return  # cold mode — modules are built per call; not patched here
+
+    if warm_decoder is not None:
+        warm_decoder.float()
+
+    if warm_vocoder is not None:
+        # Cover both VocoderWithBWE (has .vocoder/.bwe_generator/.mel_stft)
+        # and plain Vocoder (no sub-vocoders).
+        for attr in ("vocoder", "bwe_generator", "mel_stft"):
+            sub = getattr(warm_vocoder, attr, None)
+            if sub is not None and hasattr(sub, "float"):
+                sub.float()
+        if not hasattr(warm_vocoder, "vocoder"):
+            warm_vocoder.float()
+
+        if isinstance(warm_vocoder, vocoder_module.VocoderWithBWE):
+            replacement = getattr(
+                vocoder_module, "_pinokio_vocoder_with_bwe_forward_fp32", None
+            )
+            if replacement is not None:
+                warm_vocoder.forward = types.MethodType(replacement, warm_vocoder)
+
+    logger.info("MPS: cast AudioDecoder + Vocoder to float32 (autocast(fp32) is a no-op on MPS)")
 
 
 def apply_runtime_patches(model_downloader: Any, inference_server: Any = None, torch_module: Any = None) -> None:
@@ -175,5 +249,5 @@ def apply_runtime_patches(model_downloader: Any, inference_server: Any = None, t
         return
 
     torch_module = torch_module or inference_server.torch
-    patch_tts_server_device(inference_server, torch_module)
     patch_mps_vocoder_dtype(torch_module)
+    patch_tts_server_device(inference_server, torch_module)
