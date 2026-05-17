@@ -16,10 +16,14 @@ def patch_hf_downloads_for_pinokio(model_downloader: Any) -> None:
             raise ValueError(f"Unknown model: {name}. Choose from: {list(model_downloader.MODEL_FILES.keys())}")
         repo_path = model_downloader.MODEL_FILES[name]
         model_downloader.logger.info(f"Fetching {name} from {model_downloader.DRAMABOX_REPO}/{repo_path}...")
+        # Use only local_dir so files land directly in one predictable folder.
+        # Passing both cache_dir and local_dir causes huggingface_hub to keep
+        # a copy in the HF cache tree AND materialize a second copy in
+        # local_dir (full file on Windows, since symlinks are off by default),
+        # doubling disk usage.
         local_path = hf_hub_download(
             repo_id=model_downloader.DRAMABOX_REPO,
             filename=repo_path,
-            cache_dir=cache_root,
             local_dir=dramabox_dir,
             token=os.environ.get("HF_TOKEN"),
         )
@@ -28,9 +32,9 @@ def patch_hf_downloads_for_pinokio(model_downloader: Any) -> None:
 
     def get_gemma_path(cache_dir: str = None) -> str:
         model_downloader.logger.info(f"Fetching Gemma from {model_downloader.GEMMA_REPO}...")
+        # See note in get_model_path: avoid the cache_dir + local_dir double-copy.
         local_dir = snapshot_download(
             repo_id=model_downloader.GEMMA_REPO,
-            cache_dir=cache_root,
             local_dir=gemma_dir,
             token=os.environ.get("HF_TOKEN"),
             max_workers=1,
