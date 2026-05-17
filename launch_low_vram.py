@@ -2,9 +2,6 @@ import os
 import sys
 import time
 
-from mmgp import offload, profile_type
-
-
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.join(ROOT_DIR, "app")
 SRC_DIR = os.path.join(APP_DIR, "src")
@@ -12,9 +9,26 @@ SRC_DIR = os.path.join(APP_DIR, "src")
 sys.path.insert(0, SRC_DIR)
 sys.path.insert(0, APP_DIR)
 
+import torch  # noqa: E402
+
+if not torch.cuda.is_available():
+    sys.stderr.write(
+        "\n"
+        "================================================================\n"
+        " Low VRAM mode requires an NVIDIA GPU with CUDA.\n"
+        " MMGP (Memory Management for the GPU Poor) can only offload to a\n"
+        " CUDA device, and this machine does not have CUDA-enabled PyTorch.\n"
+        "\n"
+        " Use the regular 'Start' option instead. On Apple Silicon it will\n"
+        " run on MPS; on CPU-only machines it will run on CPU.\n"
+        "================================================================\n"
+        "\n"
+    )
+    sys.exit(1)
+
+from mmgp import offload, profile_type  # noqa: E402
 import model_downloader  # noqa: E402
 import inference_server  # noqa: E402
-import torch  # noqa: E402
 from pinokio_compat import apply_runtime_patches  # noqa: E402
 
 

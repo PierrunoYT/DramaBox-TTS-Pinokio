@@ -66,15 +66,20 @@ module.exports = {
           href: "link.js",
         }]
       } else {
-        return [{
+        let items = [{
           icon: "fa-solid fa-power-off",
           text: "Start",
           href: "start.js",
-        }, {
-          icon: "fa-solid fa-memory",
-          text: "<div><strong>Start Low VRAM</strong><div>Experimental MMGP offload mode</div></div>",
-          href: "start_low_vram.js",
-        }, {
+        }]
+        // MMGP can only offload to a CUDA device, so only show Low VRAM on NVIDIA.
+        if (kernel.gpu === "nvidia") {
+          items.push({
+            icon: "fa-solid fa-memory",
+            text: "<div><strong>Start Low VRAM</strong><div>Experimental MMGP offload mode</div></div>",
+            href: "start_low_vram.js",
+          })
+        }
+        return items.concat([{
           icon: "fa-solid fa-download",
           text: "Model on HuggingFace",
           href: "https://huggingface.co/ResembleAI/Dramabox",
@@ -96,7 +101,7 @@ module.exports = {
           text: "<div><strong>Reset</strong><div>Revert to pre-install state</div></div>",
           href: "reset.js",
           confirm: "Are you sure you wish to reset the app?"
-        }]
+        }])
       }
     } else {
       return [{
