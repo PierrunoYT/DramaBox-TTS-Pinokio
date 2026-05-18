@@ -227,6 +227,12 @@ def _cast_audio_stack_to_fp32(server: Any, torch_module: Any, logger: Any) -> No
 
     if warm_decoder is not None:
         warm_decoder.float()
+        # DiT outputs bf16; cast input latent to fp32 before the decoder's conv_in.
+        warm_decoder.register_forward_pre_hook(
+            lambda mod, inp: tuple(
+                x.float() if isinstance(x, torch_module.Tensor) else x for x in inp
+            )
+        )
 
     if warm_vocoder is not None:
         # Cover both VocoderWithBWE (has .vocoder/.bwe_generator/.mel_stft)
