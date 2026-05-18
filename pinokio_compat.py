@@ -204,6 +204,12 @@ def patch_mps_vocoder_dtype(torch_module: Any) -> None:
     vocoder_module._pinokio_mps_fp32_patched = True
     vocoder_module._pinokio_vocoder_with_bwe_forward_fp32 = _vocoder_with_bwe_forward_fp32
 
+    # Patch the class directly so every instantiation (warm, cold, lazy) gets
+    # the fp32 path — instance-level MethodType binding in _cast_audio_stack_to_fp32
+    # only works if the object already exists at TTSServer.__init__ time.
+    if hasattr(vocoder_module, "VocoderWithBWE"):
+        vocoder_module.VocoderWithBWE.forward = _vocoder_with_bwe_forward_fp32
+
 
 def _cast_audio_stack_to_fp32(server: Any, torch_module: Any, logger: Any) -> None:
     """Cast the warm AudioDecoder + VocoderWithBWE to fp32 (MPS only)."""
