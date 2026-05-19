@@ -17,7 +17,7 @@ import torch  # noqa: E402
 from pinokio_compat import apply_runtime_patches  # noqa: E402
 
 
-apply_runtime_patches(model_downloader, inference_server, torch)
+apply_runtime_patches(model_downloader)
 
 import app as dramabox_app  # noqa: E402
 

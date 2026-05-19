@@ -19,8 +19,7 @@ if not torch.cuda.is_available():
         " MMGP (Memory Management for the GPU Poor) can only offload to a\n"
         " CUDA device, and this machine does not have CUDA-enabled PyTorch.\n"
         "\n"
-        " Use the regular 'Start' option instead. On Apple Silicon it will\n"
-        " run on MPS; on CPU-only machines it will run on CPU.\n"
+        " Use the regular 'Start' option instead.\n"
         "================================================================\n"
         "\n"
     )
@@ -32,7 +31,7 @@ import inference_server  # noqa: E402
 from pinokio_compat import apply_runtime_patches  # noqa: E402
 
 
-apply_runtime_patches(model_downloader, inference_server, torch)
+apply_runtime_patches(model_downloader)
 
 
 def _profile_from_env():
