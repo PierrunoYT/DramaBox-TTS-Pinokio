@@ -195,11 +195,21 @@ def patch_mps_vocoder_dtype(torch_module: Any) -> None:
             x = F.pad(x, (0, self.hop_length - remainder))
 
         mel = self._compute_mel(x)
+        # _compute_mel applies log to the mel power; log(0) = -inf for silent
+        # frames.  bwe_generator's convolutions turn -inf into NaN, and NaN
+        # propagates into the final waveform where torch.clamp cannot remove it
+        # (NaN comparisons are always False, so clamp is a no-op on NaN).
+        # Floor to -80 dB (a standard mel silence level) before bwe_generator.
+        mel = torch_module.nan_to_num(mel, nan=-80.0, posinf=0.0, neginf=-80.0)
         mel_for_bwe = mel.transpose(2, 3)
         residual = self.bwe_generator(mel_for_bwe)
         skip = self.resampler(x)
 
-        return torch_module.clamp(residual + skip, -1, 1)[..., :output_length].to(input_dtype)
+        out = torch_module.clamp(residual + skip, -1, 1)[..., :output_length]
+        # Second safety net: any remaining non-finite samples (NaN/±Inf from
+        # unusual inputs) become silence so Perth watermarking never skips.
+        out = torch_module.nan_to_num(out, nan=0.0, posinf=1.0, neginf=-1.0)
+        return out.to(input_dtype)
 
     vocoder_module._pinokio_mps_fp32_patched = True
     vocoder_module._pinokio_vocoder_with_bwe_forward_fp32 = _vocoder_with_bwe_forward_fp32
