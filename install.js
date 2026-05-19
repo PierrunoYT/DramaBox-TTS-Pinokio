@@ -4,6 +4,14 @@ module.exports = {
   },
   run: [
     {
+      when: "{{platform === 'darwin'}}",
+      method: "notify",
+      params: {
+        html: "macOS is not supported. DramaBox requires Windows or Linux with an NVIDIA GPU."
+      },
+      next: null
+    },
+    {
       when: "{{!exists('app')}}",
       method: "shell.run",
       params: {
