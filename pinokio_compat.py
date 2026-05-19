@@ -235,21 +235,26 @@ def _cast_audio_stack_to_fp32(server: Any, torch_module: Any, logger: Any) -> No
         )
 
     if warm_vocoder is not None:
-        # Cover both VocoderWithBWE (has .vocoder/.bwe_generator/.mel_stft)
-        # and plain Vocoder (no sub-vocoders).
-        for attr in ("vocoder", "bwe_generator", "mel_stft"):
-            sub = getattr(warm_vocoder, attr, None)
-            if sub is not None and hasattr(sub, "float"):
-                sub.float()
-        if not hasattr(warm_vocoder, "vocoder"):
-            warm_vocoder.float()
+        # Cast ALL parameters and buffers to fp32 — this covers .vocoder,
+        # .bwe_generator, .mel_stft, .resampler, and any other sub-modules,
+        # without relying on an explicit attribute name list.
+        warm_vocoder.float()
 
-        if isinstance(warm_vocoder, vocoder_module.VocoderWithBWE):
-            replacement = getattr(
-                vocoder_module, "_pinokio_vocoder_with_bwe_forward_fp32", None
-            )
-            if replacement is not None:
-                warm_vocoder.forward = types.MethodType(replacement, warm_vocoder)
+        # Replace VocoderWithBWE.forward with an explicit fp32 implementation.
+        # Use duck-typing rather than isinstance() to handle the common case where
+        # warm_vocoder's class was imported via a different sys.path entry than
+        # vocoder_module (e.g. "ltx2.ltx_core..." vs "ltx_core..."), which makes
+        # isinstance() return False even though the classes are structurally identical.
+        has_bwe = hasattr(warm_vocoder, "bwe_generator") and hasattr(warm_vocoder, "resampler")
+        replacement = getattr(vocoder_module, "_pinokio_vocoder_with_bwe_forward_fp32", None)
+        if has_bwe and replacement is not None:
+            # Patch the actual runtime class so any future instances (cold-mode or
+            # lazy) also get the fp32 forward path without needing this function.
+            actual_cls = type(warm_vocoder)
+            if not getattr(actual_cls, "_pinokio_mps_fp32_patched", False):
+                actual_cls.forward = replacement
+                actual_cls._pinokio_mps_fp32_patched = True
+            warm_vocoder.forward = types.MethodType(replacement, warm_vocoder)
 
     logger.info("MPS: cast AudioDecoder + Vocoder to float32 (autocast(fp32) is a no-op on MPS)")
 
