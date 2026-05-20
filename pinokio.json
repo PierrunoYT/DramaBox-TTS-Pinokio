@@ -2,6 +2,7 @@
   "title": "DramaBox",
   "description": "Expressive TTS with voice cloning, prompt-driven speech synthesis built on LTX-2.3 by Resemble AI",
   "icon": "icon.jpeg",
+  "platform": ["linux", "win32"],
   "posts": [
     "https://github.com/resemble-ai/DramaBox"
   ]
