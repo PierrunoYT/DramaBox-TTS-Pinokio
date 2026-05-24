@@ -1,6 +1,7 @@
-# Pinokio: DramaBox-Python-Deps ohne torch/torchaudio (Torch nur über torch.js).
-# Sync von: https://github.com/resemble-ai/DramaBox/blob/master/requirements.txt
-# Bei Upstream-Änderungen: hier nachziehen, Zeilen torch/torchaudio weiter auslassen.
+# Pinokio: DramaBox Python deps — torch/torchaudio handled via torch.js, not here.
+# Sync from: https://github.com/resemble-ai/DramaBox/blob/master/requirements.txt
+# Last synced: upstream commit a70a581 (2026-05-23)
+# When upstream changes: update this file, keep torch/torchaudio lines excluded.
 
 # pydantic 2.11+ emits bool-shorthand `additionalProperties: True` which crashes
 # gradio_client's get_type (`if "const" in schema`). 2.10.6 is the last version
@@ -18,7 +19,8 @@ sentencepiece>=0.1.99
 transformers>=4.45.0
 huggingface_hub>=0.20.0,<1.0
 bitsandbytes>=0.45.0
-mmgp
+# mmgp is NOT in upstream requirements — kept separately for Pinokio low-VRAM
+# mode only (launch_low_vram.py). Installed via requirements_low_vram.txt.
 gradio==5.7.1
 spaces>=0.30.0
 soundfile>=0.12.0

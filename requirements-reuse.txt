@@ -1,0 +1,19 @@
+# Optional dependencies for NVIDIA RE-USE voice-reference denoising.
+#
+# Install on top of the base requirements:
+#     pip install -r requirements.txt
+#     pip install -r requirements-reuse.txt
+#
+# Linux + CUDA only — mamba-ssm and causal-conv1d require nvcc and CUDA
+# toolkit matching your PyTorch build. If the kernels fail to build, the
+# wrapper falls back to a pure-PyTorch path (5-10x slower, same output).
+# On macOS / Windows the platform markers below skip the kernel installs,
+# and the kernel-free fallback runs everywhere mamba-ssm itself works.
+
+# Used by REUSEUpsampler for kaiser_best resampling.
+librosa>=0.10.0
+resampy>=0.4.0
+
+# Bi-Mamba kernels — Linux only (no pre-built wheels for macOS / Windows).
+mamba-ssm>=2.2.0 ; platform_system == "Linux"
+causal-conv1d>=1.4.0 ; platform_system == "Linux"
