@@ -1,7 +1,4 @@
 module.exports = {
-  requires: {
-    bundle: "ai"
-  },
   run: [
     {
       when: "{{platform === 'darwin'}}",
