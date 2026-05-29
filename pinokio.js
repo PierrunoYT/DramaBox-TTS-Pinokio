@@ -1,9 +1,6 @@
 const path = require('path')
 module.exports = {
   version: "5.0",
-  title: "DramaBox",
-  description: "Expressive TTS with voice cloning — prompt-driven speech synthesis built on LTX-2.3 by Resemble AI",
-  icon: "icon.jpeg",
   menu: async (kernel, info) => {
     let installed = info.exists("app/env")
     let running = {
