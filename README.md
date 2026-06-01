@@ -24,6 +24,12 @@ DramaBox is a prompt-driven text-to-speech model with voice cloning. The prompt 
 
 Click **Start Low VRAM** to try the experimental MMGP offload wrapper. This keeps the upstream DramaBox code in `/app` untouched and launches through `launch_low_vram.py`, which auto-selects an MMGP profile from detected CUDA VRAM after the original DramaBox server loads its components. It may reduce VRAM pressure at the cost of speed and higher system RAM usage.
 
+### Optional: RE-USE Voice Denoising
+
+Click **Install RE-USE** (after a successful install) to add the optional [NVIDIA RE-USE](https://github.com/resemble-ai/Perth) voice-reference denoising addon. This installs `librosa`, `resampy`, and — on Linux only — the `mamba-ssm` and `causal-conv1d` Bi-Mamba kernels for faster denoising. On Windows the kernel-free fallback is used automatically (same output quality, 5–10× slower denoising).
+
+**Requirements:** Linux + CUDA for full-speed kernel support. Windows is supported via the pure-PyTorch fallback. macOS is not supported.
+
 ### Prompt Writing Guide
 
 **Structure:** `<speaker description>, "<dialogue>" <action direction> "<more dialogue>"`
@@ -67,6 +73,8 @@ python src/inference.py \
 
 ### JavaScript
 
+> The port is assigned dynamically. Replace `7860` with the URL shown in **Open Web UI**.
+
 ```javascript
 import { Client } from "@gradio/client";
 
@@ -85,7 +93,7 @@ Once the server is running, use the URL from **Open Web UI** with the Gradio API
 ```python
 from gradio_client import Client
 
-client = Client("http://127.0.0.1:7860")
+client = Client("http://127.0.0.1:7860")  # replace port with the one shown in Open Web UI
 result = client.predict(
     prompt='A woman speaks warmly, "Hello, how are you today?"',
     api_name="/generate"
@@ -95,6 +103,7 @@ result = client.predict(
 ### Curl
 
 ```bash
+# Replace 7860 with the port shown in Open Web UI
 curl -X POST http://127.0.0.1:7860/api/predict \
   -H "Content-Type: application/json" \
   -d '{"data": ["A woman speaks warmly, \"Hello, how are you today?\""]}'

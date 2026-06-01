@@ -1,6 +1,14 @@
 module.exports = {
   run: [
     {
+      when: "{{platform === 'darwin'}}",
+      method: "notify",
+      params: {
+        html: "macOS is not supported. DramaBox requires Windows or Linux with an NVIDIA GPU."
+      },
+      next: null
+    },
+    {
       method: "shell.run",
       params: {
         message: "git pull"
@@ -29,6 +37,12 @@ module.exports = {
           venv: "env",
           path: "app"
         }
+      }
+    },
+    {
+      method: "notify",
+      params: {
+        html: "Update complete! Click 'Start' to launch DramaBox."
       }
     }
   ]

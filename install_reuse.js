@@ -1,5 +1,4 @@
 module.exports = {
-  daemon: true,
   run: [
     {
       when: "{{platform === 'darwin'}}",
@@ -13,21 +12,14 @@ module.exports = {
       method: "shell.run",
       params: {
         venv: "env",
-        env: {
-          GRADIO_SERVER_PORT: "{{port}}"
-        },
         path: "app",
-        message: ["python ../launch.py"],
-        on: [{
-          event: "/(http:\\/\\/[0-9.:]+)/",
-          done: true
-        }]
+        message: "uv pip install -r ../requirements-reuse.txt"
       }
     },
     {
-      method: "local.set",
+      method: "notify",
       params: {
-        url: "{{input.event[1]}}"
+        html: "RE-USE installed! Voice-reference denoising is now enabled."
       }
     }
   ]

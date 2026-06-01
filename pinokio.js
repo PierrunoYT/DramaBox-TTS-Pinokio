@@ -9,7 +9,8 @@ module.exports = {
       low_vram: info.running("start_low_vram.js"),
       update: info.running("update.js"),
       reset: info.running("reset.js"),
-      link: info.running("link.js")
+      link: info.running("link.js"),
+      reuse: info.running("install_reuse.js")
     }
     if (running.install) {
       return [{
@@ -62,6 +63,13 @@ module.exports = {
           text: "Deduplicating",
           href: "link.js",
         }]
+      } else if (running.reuse) {
+        return [{
+          default: true,
+          icon: 'fa-solid fa-terminal',
+          text: "Installing RE-USE",
+          href: "install_reuse.js",
+        }]
       } else {
         let items = [{
           icon: "fa-solid fa-power-off",
@@ -89,6 +97,10 @@ module.exports = {
           icon: "fa-solid fa-plug",
           text: "Install",
           href: "install.js",
+        }, {
+          icon: "fa-solid fa-wand-magic-sparkles",
+          text: "<div><strong>Install RE-USE</strong><div>Optional voice-reference denoising</div></div>",
+          href: "install_reuse.js",
         }, {
           icon: "fa-solid fa-file-zipper",
           text: "<div><strong>Save Disk Space</strong><div>Deduplicates redundant library files</div></div>",
