@@ -15,7 +15,11 @@ module.exports = {
         venv: "env",
         env: {
           GRADIO_SERVER_PORT: "{{port}}",
-          MMGP_PROFILE: "auto"
+          MMGP_PROFILE: "auto",
+          // Reduce CUDA allocator fragmentation on tight-VRAM cards (e.g. 12GB
+          // RTX 3060). Lets PyTorch grow/shrink segments instead of stranding
+          // "reserved but unallocated" memory that triggers spurious OOMs.
+          PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
         },
         path: "app",
         message: ["python ../launch_low_vram.py"],
