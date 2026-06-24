@@ -140,9 +140,6 @@ def _load_all_with_mmgp(self):
         f"({n_params:.1f}B params, {model_gb:.1f}GB CPU, {self.dtype})"
     )
 
-    pipe = {"transformer": self._velocity_model}
-    offload.profile(pipe, _profile_from_env())
-
     t0 = time.time()
     self._audio_decoder = inference_server.AudioDecoder(
         checkpoint_path=self.full_checkpoint,
@@ -151,6 +148,36 @@ def _load_all_with_mmgp(self):
         warm=True,
     )
     inference_server.logging.info(f"  AudioDecoder (warm): {time.time()-t0:.1f}s")
+
+    # Hand every offload-safe warm component to MMGP, not just the DiT.
+    #
+    # Upstream keeps the Gemma text encoder, the audio VAE encoder, and the
+    # audio VAE decoder + vocoder all resident on CUDA (warm=True). On a 12GB
+    # card they coexist with the transformer's working set, and the OOM in
+    # issue #3 lands *during prompt encoding* — when the audio VAE pieces are
+    # idle but still pinned to the GPU. Registering them with MMGP lets it park
+    # them on CPU and page each back only for its own forward pass, freeing
+    # VRAM exactly at the peak that currently overflows.
+    #
+    # The Gemma text encoder is deliberately left out: with bnb_4bit=True (the
+    # upstream default, inference_server TTSServer.__init__) its weights are
+    # bitsandbytes 4-bit tensors that do not survive a round-trip to CPU, so
+    # MMGP must not manage it. We only add plain bf16 nn.Modules that are
+    # invoked through their forward(). getattr guards keep this a no-op if a
+    # future upstream sync renames the warm attributes.
+    pipe = {"transformer": self._velocity_model}
+    audio_encoder = getattr(self._audio_conditioner, "_warm_encoder", None)
+    if audio_encoder is not None:
+        pipe["audio_encoder"] = audio_encoder
+    audio_decoder = getattr(self._audio_decoder, "_warm_decoder", None)
+    if audio_decoder is not None:
+        pipe["audio_decoder"] = audio_decoder
+    vocoder = getattr(self._audio_decoder, "_warm_vocoder", None)
+    if vocoder is not None:
+        pipe["vocoder"] = vocoder
+    inference_server.logging.info(f"  MMGP offload pipe: {', '.join(pipe.keys())}")
+    offload.profile(pipe, _profile_from_env())
+
     inference_server.logging.info(f"All models loaded in {time.time()-t0_total:.1f}s - ready for requests")
 
 
