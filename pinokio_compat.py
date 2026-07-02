@@ -60,8 +60,8 @@ def patch_hf_downloads_for_pinokio(model_downloader: Any) -> None:
     def get_all_paths(cache_dir: str = None) -> dict:
         paths = {}
         for name in model_downloader.MODEL_FILES:
-            paths[name] = get_model_path(name)
-        paths["gemma_root"] = get_gemma_path()
+            paths[name] = get_model_path(name, cache_dir=cache_dir)
+        paths["gemma_root"] = get_gemma_path(cache_dir=cache_dir)
         return paths
 
     model_downloader.get_model_path = get_model_path
