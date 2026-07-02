@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Optional
 
 
 def _hf_hub_cache() -> str:
@@ -32,7 +32,7 @@ def patch_hf_downloads_for_pinokio(model_downloader: Any) -> None:
 
     hub_cache = _hf_hub_cache()
 
-    def get_model_path(name: str, cache_dir: str = None) -> str:
+    def get_model_path(name: str, cache_dir: Optional[str] = None) -> str:
         if name not in model_downloader.MODEL_FILES:
             raise ValueError(f"Unknown model: {name}. Choose from: {list(model_downloader.MODEL_FILES.keys())}")
         repo_path = model_downloader.MODEL_FILES[name]
@@ -46,7 +46,7 @@ def patch_hf_downloads_for_pinokio(model_downloader: Any) -> None:
         model_downloader.logger.info(f"  -> {local_path}")
         return local_path
 
-    def get_gemma_path(cache_dir: str = None) -> str:
+    def get_gemma_path(cache_dir: Optional[str] = None) -> str:
         model_downloader.logger.info(f"Fetching Gemma from {model_downloader.GEMMA_REPO}...")
         local_dir = snapshot_download(
             repo_id=model_downloader.GEMMA_REPO,
@@ -57,7 +57,7 @@ def patch_hf_downloads_for_pinokio(model_downloader: Any) -> None:
         model_downloader.logger.info(f"  -> {local_dir}")
         return local_dir
 
-    def get_all_paths(cache_dir: str = None) -> dict:
+    def get_all_paths(cache_dir: Optional[str] = None) -> dict:
         paths = {}
         for name in model_downloader.MODEL_FILES:
             paths[name] = get_model_path(name, cache_dir=cache_dir)
