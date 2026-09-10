@@ -8,14 +8,16 @@ app_dir = os.path.join(root_dir, "app")
 src_dir = os.path.join(app_dir, "src")
 
 os.chdir(app_dir)
+os.makedirs("output", exist_ok=True)
 sys.path.insert(0, src_dir)
 sys.path.insert(0, app_dir)
 
-import model_downloader  # noqa: E402
-import inference_server  # noqa: E402
 import torch  # noqa: E402
-from pinokio_compat import apply_runtime_patches  # noqa: E402
+from pinokio_compat import apply_runtime_patches, require_cuda  # noqa: E402
 
+require_cuda(torch)
+
+import model_downloader  # noqa: E402
 
 apply_runtime_patches(model_downloader)
 

@@ -3,14 +3,34 @@ from typing import Any, Optional
 
 
 def _hf_hub_cache() -> str:
-    """Resolve the canonical HF hub cache root ($HF_HUB_CACHE → $HF_HOME/hub)."""
-    explicit = os.environ.get("HF_HUB_CACHE")
-    if explicit:
-        return os.path.abspath(explicit)
-    hf_home = os.environ.get("HF_HOME") or os.path.join(
-        os.path.expanduser("~"), ".cache", "huggingface"
-    )
-    return os.path.abspath(os.path.join(hf_home, "hub"))
+    """Use the hub library's cache precedence, including XDG and legacy settings."""
+    from huggingface_hub.constants import HF_HUB_CACHE
+
+    return os.path.abspath(os.path.expanduser(HF_HUB_CACHE))
+
+
+def require_cuda(torch: Any) -> None:
+    if not torch.cuda.is_available() or getattr(torch.version, "hip", None):
+        raise SystemExit(
+            "DramaBox requires an NVIDIA GPU with CUDA-enabled PyTorch. "
+            "Check your NVIDIA driver and run Install again."
+        )
+
+
+def serialize_generation(server: Any) -> None:
+    """Share one lock across Gradio's Generate and example event handlers."""
+    from functools import wraps
+    from threading import Lock
+
+    generate = server.generate_to_file
+    lock = Lock()
+
+    @wraps(generate)
+    def locked_generate(*args, **kwargs):
+        with lock:
+            return generate(*args, **kwargs)
+
+    server.generate_to_file = locked_generate
 
 
 def patch_hf_downloads_for_pinokio(model_downloader: Any) -> None:
@@ -31,6 +51,8 @@ def patch_hf_downloads_for_pinokio(model_downloader: Any) -> None:
     from huggingface_hub import hf_hub_download, snapshot_download
 
     hub_cache = _hf_hub_cache()
+    # Also cover upstream helpers such as get_reuse_code_path.
+    model_downloader.DEFAULT_CACHE = hub_cache
 
     def get_model_path(name: str, cache_dir: Optional[str] = None) -> str:
         if name not in model_downloader.MODEL_FILES:

@@ -6,32 +6,24 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.join(ROOT_DIR, "app")
 SRC_DIR = os.path.join(APP_DIR, "src")
 
+os.chdir(APP_DIR)
+os.makedirs("output", exist_ok=True)
 sys.path.insert(0, SRC_DIR)
 sys.path.insert(0, APP_DIR)
 
 import torch  # noqa: E402
 
-if not torch.cuda.is_available():
-    sys.stderr.write(
-        "\n"
-        "================================================================\n"
-        " Low VRAM mode requires an NVIDIA GPU with CUDA.\n"
-        " MMGP (Memory Management for the GPU Poor) can only offload to a\n"
-        " CUDA device, and this machine does not have CUDA-enabled PyTorch.\n"
-        "\n"
-        " Use the regular 'Start' option instead.\n"
-        "================================================================\n"
-        "\n"
-    )
-    sys.exit(1)
+from pinokio_compat import apply_runtime_patches, require_cuda, serialize_generation  # noqa: E402
+
+require_cuda(torch)
 
 from mmgp import offload, profile_type  # noqa: E402
 import model_downloader  # noqa: E402
-import inference_server  # noqa: E402
-from pinokio_compat import apply_runtime_patches  # noqa: E402
 
 
 apply_runtime_patches(model_downloader)
+
+import inference_server  # noqa: E402
 
 
 def _profile_from_env():
@@ -185,6 +177,7 @@ inference_server.TTSServer._load_all = _load_all_with_mmgp
 
 import app as dramabox_app  # noqa: E402
 
+serialize_generation(dramabox_app.tts)
 
 if __name__ == "__main__":
     port = int(os.environ.get("GRADIO_SERVER_PORT", "7860"))
