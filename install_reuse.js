@@ -9,12 +9,21 @@ module.exports = {
       next: null
     },
     {
+      when: "{{platform === 'linux'}}",
+      method: "shell.run",
+      params: {
+        venv: "env",
+        path: "app",
+        message: "uv pip install setuptools wheel packaging ninja"
+      }
+    },
+    {
       method: "shell.run",
       params: {
         venv: "env",
         path: "app",
         message: [
-          "uv pip install -c ../constraints.txt -r ../requirements.txt -r ../requirements_low_vram.txt -r ../requirements-reuse.txt",
+          "uv pip install {{platform === 'linux' ? '--no-build-isolation' : ''}} -c ../constraints.txt -r ../requirements.txt -r ../requirements_low_vram.txt -r ../requirements-reuse.txt",
           "uv pip check"
         ]
       }

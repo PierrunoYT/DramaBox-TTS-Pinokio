@@ -2,11 +2,13 @@
 #
 # Install on top of the base requirements:
 #     pip install -r requirements.txt
-#     pip install -r requirements-reuse.txt
+#     pip install setuptools wheel packaging ninja
+#     pip install --no-build-isolation -c constraints.txt -r requirements-reuse.txt
 #
 # Linux + CUDA only — mamba-ssm and causal-conv1d require nvcc and CUDA
-# toolkit matching your PyTorch build. If the kernels fail to build, the
-# wrapper falls back to a pure-PyTorch path (5-10x slower, same output).
+# toolkit matching your PyTorch build. Build isolation must be disabled so
+# their setup scripts can import the installed CUDA-enabled torch. A build
+# failure stops installation; it does not automatically retry without kernels.
 # On macOS / Windows the platform markers below skip the kernel installs,
 # and the kernel-free fallback runs everywhere mamba-ssm itself works.
 

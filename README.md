@@ -30,13 +30,13 @@ resolve the local changes before retrying.
 
 ### Low VRAM Mode
 
-Click **Start Low VRAM** to try the experimental MMGP offload wrapper. This keeps the upstream DramaBox code in `/app` untouched and launches through `launch_low_vram.py`, which auto-selects an MMGP profile from detected CUDA VRAM after the original DramaBox server loads its components. It may reduce VRAM pressure at the cost of speed and higher system RAM usage.
+Click **Start Low VRAM** to try the experimental MMGP offload wrapper. The launcher builds the transformer on CPU before MMGP manages GPU transfers and offloads the audio VAE modules. The quantized Gemma encoder remains on CUDA. The upstream checkout stays untouched. The launcher selects an MMGP profile from detected CUDA VRAM; lower VRAM usage comes at the cost of speed and higher system RAM usage. Generate and example requests share a lock to prevent overlapping model transfers.
 
 ### Optional: RE-USE Voice Denoising
 
-Click **Install RE-USE** (after a successful install) to add the optional [NVIDIA RE-USE](https://github.com/resemble-ai/Perth) voice-reference denoising addon. This installs `librosa`, `resampy`, and — on Linux only — the `mamba-ssm` and `causal-conv1d` Bi-Mamba kernels for faster denoising. On Windows the kernel-free fallback is used automatically (same output quality, 5–10× slower denoising).
+Click **Install RE-USE** (after a successful install) to add the optional [NVIDIA RE-USE](https://huggingface.co/nvidia/RE-USE) voice-reference denoising addon. This installs `librosa`, `resampy`, and — on Linux only — the `mamba-ssm` and `causal-conv1d` Bi-Mamba kernels. Windows skips these kernels; denoising availability depends on the upstream fallback implementation.
 
-**Requirements:** Linux + CUDA for full-speed kernel support. Windows is supported via the pure-PyTorch fallback. macOS is not supported.
+**Requirements:** Linux kernel builds require `nvcc` and a CUDA toolkit matching the installed PyTorch build (CUDA 12.8). The installer supplies Python build tools and uses the existing environment for compilation. If compilation fails, installation stops; fix the reported toolchain error and retry. macOS is not supported.
 
 ### Prompt Writing Guide
 
@@ -58,25 +58,34 @@ A woman speaks warmly, "Hello, how are you today?" She laughs, "Hahaha, it is so
 
 ### Python
 
-```python
-from src.inference_server import TTSServer
+Run from the launcher repository root using the installed `app/env` Python environment.
+Resolve the downloaded checkpoints explicitly; the server's defaults refer to a
+different set of local model filenames.
 
-server = TTSServer(device="cuda")
+```python
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path("app/src").resolve()))
+import model_downloader
+from pinokio_compat import apply_runtime_patches
+
+apply_runtime_patches(model_downloader)
+paths = model_downloader.get_all_paths()
+from inference_server import TTSServer
+
+server = TTSServer(
+    checkpoint=paths["transformer"],
+    full_checkpoint=paths["audio_components"],
+    gemma_root=paths["gemma_root"],
+    device="cuda",
+    compile_model=False,
+)
 server.generate_to_file(
     prompt='A woman speaks warmly, "Hello, how are you today?"',
     output="output.wav",
     voice_ref="reference.wav",   # optional, 10+ seconds
 )
-```
-
-### CLI
-
-```bash
-python src/inference.py \
-  --voice-sample reference.wav \
-  --prompt 'A woman speaks warmly, "Hello, how are you today?"' \
-  --output output.wav \
-  --cfg-scale 2.5 --stg-scale 1.5
 ```
 
 ### JavaScript
@@ -87,9 +96,10 @@ python src/inference.py \
 import { Client } from "@gradio/client";
 
 const client = await Client.connect("http://127.0.0.1:7860");
-const result = await client.predict("/generate", {
-  prompt: 'A woman speaks warmly, "Hello, how are you today?"'
-});
+const result = await client.predict("/on_generate", [
+  'A woman speaks warmly, "Hello, how are you today?"',
+  null, 2.5, 1.5, 1.1, 0, 10, 42, false, 45, 37, 50
+]);
 
 console.log(result);
 ```
@@ -104,18 +114,44 @@ from gradio_client import Client
 client = Client("http://127.0.0.1:7860")  # replace port with the one shown in Open Web UI
 result = client.predict(
     prompt='A woman speaks warmly, "Hello, how are you today?"',
-    api_name="/generate"
+    audio_ref=None,
+    cfg=2.5, stg=1.5, dur_mult=1.1,
+    gen_dur=0, ref_dur=10, seed=42, denoise_ref=False,
+    max_chunk_s=45, target_chunk_s=37, crossfade_ms=50,
+    api_name="/on_generate",
 )
+print(result)
 ```
+
+The inputs follow the upstream `on_generate` handler: prompt, optional reference,
+CFG, STG, duration multiplier, target duration, reference duration, seed,
+denoising, maximum chunk duration, target chunk duration, and crossfade.
+Use `client.view_api()` to inspect the running version after upstream updates.
 
 ### Curl
 
 ```bash
 # Replace 7860 with the port shown in Open Web UI
-curl -X POST http://127.0.0.1:7860/api/predict \
+curl -X POST http://127.0.0.1:7860/gradio_api/call/on_generate \
   -H "Content-Type: application/json" \
-  -d '{"data": ["A woman speaks warmly, \"Hello, how are you today?\""]}'
+  -d '{"data": ["A woman speaks warmly, \"Hello, how are you today?\"", null, 2.5, 1.5, 1.1, 0, 10, 42, false, 45, 37, 50]}'
+
+# Copy event_id from the POST response into EVENT_ID below, then stream the result.
+curl -N http://127.0.0.1:7860/gradio_api/call/on_generate/EVENT_ID
 ```
+
+## Development checks
+
+These checks use Python's standard library and Node.js; no models or GPU are needed:
+
+```bash
+python -m unittest discover -s tests -v
+node --test tests/launcher.test.js
+```
+
+They cover startup configuration, cache routing, generation locking, hardware
+guards, URL capture, and launcher state transitions. Full audio generation and
+Linux CUDA extension builds require a separate test with the installed app and GPU.
 
 ## Models
 
