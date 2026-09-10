@@ -2,10 +2,10 @@ module.exports = {
   daemon: true,
   run: [
     {
-      when: "{{platform === 'darwin'}}",
+      when: "{{platform === 'darwin' || gpu !== 'nvidia'}}",
       method: "notify",
       params: {
-        html: "macOS is not supported. DramaBox requires Windows or Linux with an NVIDIA GPU."
+        html: "DramaBox requires Windows or Linux with an NVIDIA GPU. CPU, AMD, and macOS are not supported."
       },
       next: null
     },

@@ -4,10 +4,10 @@ module.exports = {
   },
   run: [
     {
-      when: "{{platform === 'darwin'}}",
+      when: "{{platform === 'darwin' || gpu !== 'nvidia'}}",
       method: "notify",
       params: {
-        html: "macOS is not supported. DramaBox requires Windows or Linux with an NVIDIA GPU."
+        html: "DramaBox requires Windows or Linux with an NVIDIA GPU. CPU, AMD, and macOS are not supported."
       },
       next: null
     },
@@ -19,11 +19,16 @@ module.exports = {
       }
     },
     {
+      when: "{{exists('app/.installed')}}",
+      method: "fs.rm",
+      params: { path: "app/.installed" }
+    },
+    {
       method: "shell.run",
       params: {
         venv: "env",
         path: "app",
-        message: ["uv pip install -r ../requirements.txt", "uv pip install -r ../requirements_low_vram.txt"]
+        message: "uv pip install -c ../constraints.txt -r ../requirements.txt -r ../requirements_low_vram.txt"
       }
     },
     {
@@ -35,6 +40,14 @@ module.exports = {
           path: "app"
         }
       }
+    },
+    {
+      method: "shell.run",
+      params: { venv: "env", path: "app", message: "uv pip check" }
+    },
+    {
+      method: "fs.write",
+      params: { path: "app/.installed", text: "Dependencies installed successfully.\n" }
     },
     {
       method: "notify",

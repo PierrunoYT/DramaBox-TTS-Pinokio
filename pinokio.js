@@ -1,8 +1,7 @@
-const path = require('path')
 module.exports = {
   version: "5.0",
   menu: async (kernel, info) => {
-    let installed = info.exists("app/env")
+    let installed = info.exists("app/env") && info.exists("app/.installed")
     let running = {
       install: info.running("install.js"),
       start: info.running("start.js"),
@@ -19,6 +18,15 @@ module.exports = {
         text: "Installing",
         href: "install.js",
       }]
+    } else if (running.update || running.reset || running.link || running.reuse) {
+      const operations = [
+        [running.update, "Updating", "update.js"],
+        [running.reset, "Resetting", "reset.js"],
+        [running.link, "Deduplicating", "link.js"],
+        [running.reuse, "Installing RE-USE", "install_reuse.js"]
+      ]
+      const [, text, href] = operations.find(([active]) => active)
+      return [{ default: true, icon: "fa-solid fa-terminal", text, href }]
     } else if (installed) {
       if (running.start || running.low_vram) {
         let start_script = running.low_vram ? "start_low_vram.js" : "start.js"
@@ -42,36 +50,9 @@ module.exports = {
             href: start_script,
           }]
         }
-      } else if (running.update) {
-        return [{
-          default: true,
-          icon: 'fa-solid fa-terminal',
-          text: "Updating",
-          href: "update.js",
-        }]
-      } else if (running.reset) {
-        return [{
-          default: true,
-          icon: 'fa-solid fa-terminal',
-          text: "Resetting",
-          href: "reset.js",
-        }]
-      } else if (running.link) {
-        return [{
-          default: true,
-          icon: 'fa-solid fa-terminal',
-          text: "Deduplicating",
-          href: "link.js",
-        }]
-      } else if (running.reuse) {
-        return [{
-          default: true,
-          icon: 'fa-solid fa-terminal',
-          text: "Installing RE-USE",
-          href: "install_reuse.js",
-        }]
       } else {
         let items = [{
+          default: true,
           icon: "fa-solid fa-power-off",
           text: "Start",
           href: "start.js",
