@@ -67,8 +67,6 @@ def _load_all_with_mmgp(self):
     it after the peak has already happened. Keep the app checkout untouched, but
     load the DiT on CPU here so MMGP owns the first GPU transfer.
     """
-    t0_total = time.time()
-
     t0 = time.time()
     self._prompt_encoder = inference_server.PromptEncoder(
         checkpoint_path=self.full_checkpoint,
@@ -174,8 +172,6 @@ def _load_all_with_mmgp(self):
         pipe["vocoder"] = vocoder
     inference_server.logging.info(f"  MMGP offload pipe: {', '.join(pipe.keys())}")
     offload.profile(pipe, _profile_from_env())
-
-    inference_server.logging.info(f"All models loaded in {time.time()-t0_total:.1f}s - ready for requests")
 
 
 inference_server.TTSServer._load_all = _load_all_with_mmgp
