@@ -65,7 +65,7 @@ module.exports = {
             href: "start_low_vram.js",
           })
         }
-        return items.concat([{
+        items.push({
           icon: "fa-solid fa-download",
           text: "Model on HuggingFace",
           href: "https://huggingface.co/ResembleAI/Dramabox",
@@ -78,11 +78,16 @@ module.exports = {
           icon: "fa-solid fa-plug",
           text: "Install",
           href: "install.js",
-        }, {
-          icon: "fa-solid fa-wand-magic-sparkles",
-          text: "<div><strong>Install RE-USE</strong><div>Optional voice-reference denoising</div></div>",
-          href: "install_reuse.js",
-        }, {
+        })
+        // RE-USE needs mamba-ssm, which only builds on Linux.
+        if (kernel.platform === "linux") {
+          items.push({
+            icon: "fa-solid fa-wand-magic-sparkles",
+            text: "<div><strong>Install RE-USE</strong><div>Optional voice-reference denoising</div></div>",
+            href: "install_reuse.js",
+          })
+        }
+        return items.concat([{
           icon: "fa-solid fa-file-zipper",
           text: "<div><strong>Save Disk Space</strong><div>Deduplicates redundant library files</div></div>",
           href: "link.js",

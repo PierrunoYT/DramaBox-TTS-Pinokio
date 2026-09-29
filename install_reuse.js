@@ -9,7 +9,15 @@ module.exports = {
       next: null
     },
     {
-      when: "{{platform === 'linux'}}",
+      // Upstream RE-USE imports mamba_ssm, which has no Windows build.
+      when: "{{platform !== 'linux'}}",
+      method: "notify",
+      params: {
+        html: "RE-USE voice denoising requires Linux: its mamba-ssm dependency has no Windows build. DramaBox works without it."
+      },
+      next: null
+    },
+    {
       method: "shell.run",
       params: {
         venv: "env",
@@ -23,7 +31,7 @@ module.exports = {
         venv: "env",
         path: "app",
         message: [
-          "uv pip install {{platform === 'linux' ? '--no-build-isolation' : ''}} -c ../constraints.txt -r ../requirements.txt -r ../requirements_low_vram.txt -r ../requirements-reuse.txt",
+          "uv pip install --no-build-isolation -c ../constraints.txt -r ../requirements.txt -r ../requirements_low_vram.txt -r ../requirements-reuse.txt",
           "uv pip check"
         ]
       }

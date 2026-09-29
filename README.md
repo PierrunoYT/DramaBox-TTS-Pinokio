@@ -34,9 +34,9 @@ Click **Start Low VRAM** to try the experimental MMGP offload wrapper. The launc
 
 ### Optional: RE-USE Voice Denoising
 
-Click **Install RE-USE** (after a successful install) to add the optional [NVIDIA RE-USE](https://huggingface.co/nvidia/RE-USE) voice-reference denoising addon. This installs `librosa`, `resampy`, and — on Linux only — the `mamba-ssm` and `causal-conv1d` Bi-Mamba kernels. Windows skips these kernels; denoising availability depends on the upstream fallback implementation.
+On Linux, click **Install RE-USE** (after a successful install) to add the optional [NVIDIA RE-USE](https://huggingface.co/nvidia/RE-USE) voice-reference denoising addon. This installs `librosa`, `resampy`, and the `mamba-ssm` and `causal-conv1d` Bi-Mamba kernels.
 
-**Requirements:** Linux kernel builds require `nvcc` and a CUDA toolkit matching the installed PyTorch build (CUDA 12.8). The installer supplies Python build tools and uses the existing environment for compilation. If compilation fails, installation stops; fix the reported toolchain error and retry. macOS is not supported.
+**Requirements:** Linux only — upstream RE-USE needs `mamba-ssm`, which has no Windows build, so the option is hidden on Windows and DramaBox runs without denoising. Kernel builds require `nvcc` and a CUDA toolkit matching the installed PyTorch build (CUDA 12.8). The installer supplies Python build tools and uses the existing environment for compilation. If compilation fails, installation stops; fix the reported toolchain error and retry.
 
 ### Prompt Writing Guide
 

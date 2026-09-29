@@ -9,8 +9,8 @@
 # toolkit matching your PyTorch build. Build isolation must be disabled so
 # their setup scripts can import the installed CUDA-enabled torch. A build
 # failure stops installation; it does not automatically retry without kernels.
-# On macOS / Windows the platform markers below skip the kernel installs,
-# and the kernel-free fallback runs everywhere mamba-ssm itself works.
+# Upstream RE-USE always imports mamba_ssm, so denoising cannot work on
+# Windows / macOS; install_reuse.js refuses to run there.
 
 # Used by REUSEUpsampler for kaiser_best resampling.
 librosa>=0.10.0

@@ -42,6 +42,18 @@ test('ready and running menus select the correct launch mode', async () => {
   }
 })
 
+test('RE-USE is offered and installed only on Linux', async () => {
+  const files = ['app/env', 'app/.installed']
+  const offered = async platform => (await menu({ gpu: 'nvidia', platform }, info(files)))
+    .some(item => item.href === 'install_reuse.js')
+  assert.equal(await offered('linux'), true)
+  assert.equal(await offered('win32'), false)
+  const script = require('../install_reuse.js')
+  const first = script.run.find(step => enabled(step, 'win32', 'nvidia', new Set()))
+  assert.equal(first.method, 'notify')
+  assert.equal(first.next, null)
+})
+
 function enabled(step, platform, gpu, files) {
   if (!step.when) return true
   const expression = step.when.slice(2, -2)
