@@ -115,6 +115,8 @@ class RuntimeTests(unittest.TestCase):
                     self.assertEqual(ui.launch.call_args.kwargs["server_name"], "127.0.0.1")
                     self.assertEqual(ui.launch.call_args.kwargs["server_port"], 8123)
                     self.assertFalse(ui.launch.call_args.kwargs["share"])
+                    modules["pinokio_compat"].serialize_generation.assert_called_once_with(
+                        modules["app"].tts)
                 finally:
                     os.chdir(old_cwd)
                     sys.path[:] = old_path

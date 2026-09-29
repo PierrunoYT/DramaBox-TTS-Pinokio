@@ -20,6 +20,8 @@ DramaBox is a prompt-driven text-to-speech model with voice cloning. The prompt 
 2. Click **Start** to launch the Gradio web UI.
 3. Click **Open Web UI** to open DramaBox in your browser.
 
+Generate and example requests share a lock, so only one generation runs on the GPU at a time.
+
 After upgrading an older launcher, run **Install** once to validate the existing
 environment and record a successful install. This reuses the `app` checkout and
 cached models. Start appears only after dependency installation and validation
@@ -30,7 +32,7 @@ resolve the local changes before retrying.
 
 ### Low VRAM Mode
 
-Click **Start Low VRAM** to try the experimental MMGP offload wrapper. The launcher builds the transformer on CPU before MMGP manages GPU transfers and offloads the audio VAE modules. The quantized Gemma encoder remains on CUDA. The upstream checkout stays untouched. The launcher selects an MMGP profile from detected CUDA VRAM; lower VRAM usage comes at the cost of speed and higher system RAM usage. Generate and example requests share a lock to prevent overlapping model transfers.
+Click **Start Low VRAM** to try the experimental MMGP offload wrapper. The launcher builds the transformer on CPU before MMGP manages GPU transfers and offloads the audio VAE modules. The quantized Gemma encoder remains on CUDA. The upstream checkout stays untouched. The launcher selects an MMGP profile from detected CUDA VRAM; lower VRAM usage comes at the cost of speed and higher system RAM usage.
 
 ### Optional: RE-USE Voice Denoising
 

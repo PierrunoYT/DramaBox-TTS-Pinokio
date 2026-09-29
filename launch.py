@@ -13,7 +13,7 @@ sys.path.insert(0, src_dir)
 sys.path.insert(0, app_dir)
 
 import torch  # noqa: E402
-from pinokio_compat import apply_runtime_patches, require_cuda  # noqa: E402
+from pinokio_compat import apply_runtime_patches, require_cuda, serialize_generation  # noqa: E402
 
 require_cuda(torch)
 
@@ -23,6 +23,9 @@ apply_runtime_patches(model_downloader)
 
 import app as dramabox_app  # noqa: E402
 
+# Generate and example clicks are separate Gradio events with separate
+# concurrency limits; share one lock so two generations never overlap on the GPU.
+serialize_generation(dramabox_app.tts)
 
 dramabox_app.app.queue(max_size=10).launch(
     server_name="127.0.0.1",
