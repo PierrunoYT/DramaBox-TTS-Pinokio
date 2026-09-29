@@ -41,6 +41,11 @@ def _profile_from_env():
     }
     key = os.environ.get("MMGP_PROFILE", "5").strip().lower()
     if key and key != "auto":
+        if key not in profiles:
+            inference_server.logging.warning(
+                f"Unknown MMGP_PROFILE {key!r}; using VerylowRAM_LowVRAM. "
+                f"Valid values: auto, {', '.join(profiles)}"
+            )
         return profiles.get(key, profile_type.VerylowRAM_LowVRAM)
     try:
         total_gb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
